@@ -49,11 +49,11 @@ jobs:
           build_status=${PIPESTATUS[0]}
           set -e
           if [ "$build_status" -ne 0 ]; then
-            grep -Ei 'FAILURE:|What went wrong|Execution failed|Could not|error:|Exception|not found|failed|^>' ../android-build.log | head -n 30 >> "$GITHUB_STEP_SUMMARY" || true
+            grep -Ei 'FAILURE: Build failed|What went wrong|Execution failed|Could not|error:|Exception|No such file|not found|SDK location|Namespace not specified|Unsupported class|Plugin with id|requires compileSdk|uses-sdk:minSdkVersion' ../android-build.log | head -n 20 >> "$GITHUB_STEP_SUMMARY" || true
             while IFS= read -r line; do
               escaped=$(printf '%s' "$line" | sed -e 's/%/%25/g' -e 's/\r/%0D/g')
               echo "::error title=Gradle diagnosis::$escaped"
-            done < <(grep -Ei 'FAILURE:|What went wrong|Execution failed|Could not|error:|Exception|not found|failed|^>' ../android-build.log | head -n 20)
+            done < <(grep -Ei 'FAILURE: Build failed|What went wrong|Execution failed|Could not|error:|Exception|No such file|not found|SDK location|Namespace not specified|Unsupported class|Plugin with id|requires compileSdk|uses-sdk:minSdkVersion' ../android-build.log | head -n 20)
             exit "$build_status"
           fi
       - uses: actions/upload-artifact@v4
