@@ -29,6 +29,7 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
+          cache: gradle
       - name: Verify runner Android SDK
         run: |
           echo "ANDROID_HOME=$ANDROID_HOME"
@@ -44,10 +45,24 @@ jobs:
         run: |
           cd android
           chmod +x gradlew
-          set +e
-          ./gradlew assembleDebug --stacktrace 2>&1 | tee ../android-build.log
-          build_status=${PIPESTATUS[0]}
-          set -e
+          : > ../android-build.log
+          build_status=1
+          for attempt in 1 2 3; do
+            echo "Android build attempt $attempt/3"
+            set +e
+            ./gradlew assembleDebug --stacktrace 2>&1 | tee -a ../android-build.log
+            build_status=${PIPESTATUS[0]}
+            set -e
+            if [ "$build_status" -eq 0 ]; then
+              break
+            fi
+            if [ "$attempt" -lt 3 ] && grep -Eqi 'status code 429|HTTP 429|Too Many Requests' ../android-build.log; then
+              echo "Maven Central rate limit detected; retrying after a short delay."
+              sleep $((attempt * 15))
+            else
+              break
+            fi
+          done
           if [ "$build_status" -ne 0 ]; then
             grep -Ei 'FAILURE: Build failed|What went wrong|Execution failed|Could not|error:|Exception|No such file|not found|SDK location|Namespace not specified|Unsupported class|Plugin with id|requires compileSdk|uses-sdk:minSdkVersion' ../android-build.log | head -n 20 >> "$GITHUB_STEP_SUMMARY" || true
             while IFS= read -r line; do
