@@ -49,11 +49,11 @@ jobs:
           build_status=${PIPESTATUS[0]}
           set -e
           if [ "$build_status" -ne 0 ]; then
-            tail -n 100 ../android-build.log >> "$GITHUB_STEP_SUMMARY"
+            grep -Ei 'FAILURE:|What went wrong|Execution failed|Could not|error:|Exception|not found|failed|^>' ../android-build.log | head -n 30 >> "$GITHUB_STEP_SUMMARY" || true
             while IFS= read -r line; do
               escaped=$(printf '%s' "$line" | sed -e 's/%/%25/g' -e 's/\r/%0D/g')
-              echo "::error title=Gradle build::$escaped"
-            done < <(tail -n 30 ../android-build.log)
+              echo "::error title=Gradle diagnosis::$escaped"
+            done < <(grep -Ei 'FAILURE:|What went wrong|Execution failed|Could not|error:|Exception|not found|failed|^>' ../android-build.log | head -n 20)
             exit "$build_status"
           fi
       - uses: actions/upload-artifact@v4
@@ -88,7 +88,7 @@ jobs:
           $buildStatus = $LASTEXITCODE
           if ($buildStatus -ne 0) {
             Get-Content electron-build.log -Tail 100 | Add-Content $env:GITHUB_STEP_SUMMARY
-            Get-Content electron-build.log -Tail 30 | ForEach-Object { Write-Output "::error title=Electron build::$_" }
+            Get-Content electron-build.log | Select-String -Pattern '⨯|ERROR|failed|error|cannot|unable|not found|exception' | Select-Object -Last 25 | ForEach-Object { Write-Output "::error title=Electron diagnosis::$($_.Line)" }
             exit $buildStatus
           }
       - uses: actions/upload-artifact@v4
