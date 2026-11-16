@@ -25,7 +25,7 @@
 
 ## اجرا و توسعه
 
-نیازمندی‌ها: Node.js 20+ و npm. برای Android، Android Studio/SDK و JDK 17. برای Windows EXE، Windows 10/11 (ساخت بومی Windows توصیه می‌شود).
+نیازمندی‌ها: Node.js 20+ و npm. برای Android، Android Studio/SDK و JDK 21. برای Windows EXE، Windows 10/11 (ساخت بومی Windows توصیه می‌شود).
 
 ```bash
 npm ci
