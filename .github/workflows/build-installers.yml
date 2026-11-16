@@ -1,6 +1,9 @@
 name: Build and publish installers
 
 on:
+  push:
+    branches:
+      - arena/39d6bf99-bt-clasic-contorol-app
   workflow_dispatch:
     inputs:
       release_version:
