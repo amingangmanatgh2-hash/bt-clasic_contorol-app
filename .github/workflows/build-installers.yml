@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       release_version:
-        description: GitHub release tag to create (example: v1.0.0)
+        description: "GitHub release tag to create (example: v1.0.0)"
         required: true
         default: v1.1.0
         type: string
