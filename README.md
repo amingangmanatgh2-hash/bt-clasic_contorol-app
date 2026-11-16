@@ -57,7 +57,7 @@ Installer NSIS x64 در `release/` تولید می‌شود. جفت‌سازی �
 
 ## انتشار در GitHub Releases
 
-از **Actions → Build and publish installers → Run workflow** نسخه‌ای مانند `v1.0.0` را وارد کنید. Workflow هر دو خروجی را در runnerهای مستقل Windows و Android می‌سازد و پس از موفقیت هر دو، یک GitHub Release با فایل APK اندروید و Windows NSIS installer می‌سازد. APK نسخه debug و قابل نصب است؛ نسخه Android برای توزیع عمومی با keystore شخصی امضا شود. Windows EXE نیز امضای کد ندارد. در کنار Release، دو artifact موقت با مهلت 14 روز نگه‌داری می‌شوند.
+روی شاخهٔ کاری این پروژه، هر push به‌طور خودکار ساخت هر دو نسخه را اجرا می‌کند و پس از موفقیت، Release `v1.0.0` را با APK و Windows NSIS installer می‌سازد. برای نسخهٔ دیگر از **Actions → Build and publish installers → Run workflow** استفاده و نسخه‌ای مانند `v1.1.0` وارد کنید. اگر تگ انتشار از قبل وجود داشته باشد، فایل‌های قبلی دست‌نخورده می‌مانند. APK نسخه debug و قابل نصب است؛ نسخه Android برای توزیع عمومی با keystore شخصی امضا شود. Windows EXE نیز امضای کد ندارد. در کنار Release، دو artifact موقت با مهلت 14 روز نگه‌داری می‌شوند.
 
 ## ساختار
 
