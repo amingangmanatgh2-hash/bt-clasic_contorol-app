@@ -1,6 +1,6 @@
 {
   "name": "amin-bluetooth-control",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "private": true,
   "description": "AMIN Bluetooth Control — HC-05/HC-06 Bluetooth Classic SPP controller",
   "author": "AMIN",
