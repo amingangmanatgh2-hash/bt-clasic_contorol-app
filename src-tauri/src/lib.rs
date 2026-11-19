@@ -8,7 +8,7 @@ use windows::{
         Bluetooth::Rfcomm::RfcommServiceId,
         Enumeration::DeviceInformation,
     },
-    Networking::Sockets::{SocketProtectionLevel, StreamSocket},
+    Networking::Sockets::StreamSocket,
     Storage::Streams::{DataReader, DataWriter, InputStreamOptions},
 };
 
@@ -43,7 +43,7 @@ async fn list_bluetooth_devices() -> Result<Vec<BluetoothDeviceInfo>, String> {
     let selector = BluetoothDevice::GetDeviceSelector().map_err(win_error)?;
     let devices = DeviceInformation::FindAllAsyncAqsFilter(&selector)
         .map_err(win_error)?
-        .await
+        .get()
         .map_err(win_error)?;
 
     let mut result = Vec::new();
@@ -64,7 +64,7 @@ async fn list_bluetooth_devices() -> Result<Vec<BluetoothDeviceInfo>, String> {
 }
 
 fn start_reader(app: AppHandle, socket: StreamSocket) {
-    tauri::async_runtime::spawn(async move {
+    tauri::async_runtime::spawn_blocking(move || {
         let reader = match socket.InputStream().and_then(|stream| DataReader::CreateDataReader(&stream)) {
             Ok(reader) => reader,
             Err(error) => {
@@ -74,11 +74,8 @@ fn start_reader(app: AppHandle, socket: StreamSocket) {
         };
         let _ = reader.SetInputStreamOptions(InputStreamOptions::Partial);
         loop {
-            let count = match reader.LoadAsync(512) {
-                Ok(operation) => match operation.await {
-                    Ok(count) => count,
-                    Err(_) => break,
-                },
+            let count = match reader.LoadAsync(512).and_then(|operation| operation.get()) {
+                Ok(count) => count,
                 Err(_) => break,
             };
             if count == 0 {
@@ -108,13 +105,13 @@ async fn connect_bluetooth(
 
     let device = BluetoothDevice::FromIdAsync(&HSTRING::from(address))
         .map_err(win_error)?
-        .await
+        .get()
         .map_err(win_error)?;
     let name = device.Name().map_err(win_error)?.to_string();
     let services = device
         .GetRfcommServicesAsync(BluetoothCacheMode::Uncached)
         .map_err(win_error)?
-        .await
+        .get()
         .map_err(win_error)?;
     let serial_uuid = RfcommServiceId::SerialPort()
         .map_err(win_error)?
@@ -132,7 +129,7 @@ async fn connect_bluetooth(
         let host = service.ConnectionHostName().map_err(win_error)?;
         let service_name = service.ConnectionServiceName().map_err(win_error)?;
         candidate
-            .ConnectAsync(&host, &service_name, SocketProtectionLevel::PlainSocket)
+            .ConnectAsync(&host, &service_name)
             .map_err(win_error)?
             .get()
             .map_err(win_error)?;
@@ -172,8 +169,8 @@ async fn send_bluetooth(state: State<'_, BluetoothState>, data: String) -> Resul
         .map(|connection| connection.writer.clone())
         .ok_or_else(|| "Connect to a Bluetooth device first.".to_string())?;
     writer.WriteString(&HSTRING::from(data)).map_err(win_error)?;
-    writer.StoreAsync().map_err(win_error)?.await.map_err(win_error)?;
-    writer.FlushAsync().map_err(win_error)?.await.map_err(win_error)?;
+    writer.StoreAsync().map_err(win_error)?.get().map_err(win_error)?;
+    writer.FlushAsync().map_err(win_error)?.get().map_err(win_error)?;
     Ok(())
 }
 
