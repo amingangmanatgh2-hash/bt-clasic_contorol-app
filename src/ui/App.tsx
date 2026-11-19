@@ -72,6 +72,7 @@ export default function App() {
   const [newPageName, setNewPageName] = useState('');
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState('');
+  const toastTimer = useRef<number|undefined>(undefined);
   const [filter, setFilter] = useState('');
   const [mobileMenu, setMobileMenu] = useState(false);
   const [receivedCount, setReceivedCount] = useState(0);
@@ -88,7 +89,8 @@ export default function App() {
   useEffect(() => { if(!monitorSnapshot) monitorEndRef.current?.scrollIntoView({behavior:'smooth',block:'end'}); }, [monitorEntries,monitorSnapshot]);
   useEffect(() => { localStorage.setItem('amin-emergency-command', JSON.stringify(emergencyCommand)); }, [emergencyCommand]);
   useEffect(() => { localStorage.setItem('amin-line-ending', JSON.stringify(lineEnding)); }, [lineEnding]);
-  const notify = useCallback((message: string) => { setToast(message); window.setTimeout(() => setToast(''), 2600); }, []);
+  useEffect(() => () => { if(toastTimer.current!==undefined) window.clearTimeout(toastTimer.current); }, []);
+  const notify = useCallback((message: string) => { if(toastTimer.current!==undefined) window.clearTimeout(toastTimer.current); setToast(message); toastTimer.current=window.setTimeout(() => { setToast(''); toastTimer.current=undefined; }, 2600); }, []);
   const addEntry = useCallback((direction: Entry['direction'], payload: string, target = deviceName) => {
     setHistory(prev => [{ id: crypto.randomUUID(), direction, payload, target, time: new Date().toISOString() }, ...prev].slice(0,400));
     if (direction === 'received') setReceivedCount(n => n + 1);
