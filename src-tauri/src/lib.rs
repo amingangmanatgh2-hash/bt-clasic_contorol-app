@@ -81,12 +81,13 @@ fn start_reader(app: AppHandle, socket: StreamSocket) {
             if count == 0 {
                 break;
             }
-            match reader.ReadString(count) {
-                Ok(data) if !data.is_empty() => {
-                    let _ = app.emit("bt:data", serde_json::json!({"data": data.to_string()}));
-                }
-                Ok(_) => {}
-                Err(_) => break,
+            let mut chunk = vec![0u8; count as usize];
+            if reader.ReadBytes(&mut chunk).is_err() {
+                break;
+            }
+            let data = String::from_utf8_lossy(&chunk).into_owned();
+            if !data.is_empty() {
+                let _ = app.emit("bt:data", serde_json::json!({"data": data}));
             }
         }
         let _ = app.emit("bt:status", serde_json::json!({"connected": false}));
@@ -109,7 +110,7 @@ async fn connect_bluetooth(
         .map_err(win_error)?;
     let name = device.Name().map_err(win_error)?.to_string();
     let services = device
-        .GetRfcommServicesAsync(BluetoothCacheMode::Uncached)
+        .GetRfcommServicesWithCacheModeAsync(BluetoothCacheMode::Uncached)
         .map_err(win_error)?
         .get()
         .map_err(win_error)?;
