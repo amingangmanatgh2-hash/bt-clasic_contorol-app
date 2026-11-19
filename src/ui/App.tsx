@@ -42,7 +42,7 @@ export default function App() {
   const [lang, setLang] = useState<Lang>(() => load<Lang>('amin-lang','fa'));
   const t = text[lang]; const rtl = lang === 'fa';
   const [pages, setPages] = useState<ControlPage[]>(() => load('amin-pages', initialPages));
-  const [activePage, setActivePage] = useState('main');
+  const [activePage, setActivePage] = useState<string>(() => load('amin-active-page','main'));
   const [history, setHistory] = useState<Entry[]>(() => load('amin-history', initialHistory));
   const [telemetry, setTelemetry] = useState<TelemetryMetric[]>(() => load('amin-telemetry', []));
   const telemetryRef = useRef<TelemetryMetric[]>(telemetry);
@@ -83,6 +83,7 @@ export default function App() {
 
   useEffect(() => { document.documentElement.lang = lang; document.documentElement.dir = rtl ? 'rtl' : 'ltr'; localStorage.setItem('amin-lang', JSON.stringify(lang)); }, [lang,rtl]);
   useEffect(() => { localStorage.setItem('amin-pages', JSON.stringify(pages)); }, [pages]);
+  useEffect(() => { if(pages.some(page=>page.id===activePage)) localStorage.setItem('amin-active-page',activePage); else if(pages[0]) setActivePage(pages[0].id); }, [pages,activePage]);
   useEffect(() => { localStorage.setItem('amin-history', JSON.stringify(history.slice(0,400))); }, [history]);
   useEffect(() => { localStorage.setItem('amin-telemetry', JSON.stringify(telemetry)); telemetryRef.current=telemetry; }, [telemetry]);
   useEffect(() => { localStorage.setItem('amin-sequences', JSON.stringify(sequences)); }, [sequences]);
