@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       release_version:
-        description: "GitHub release tag to create (example: v2.10.0)"
+        description: "GitHub release tag to create (example: v3.0.0)"
         required: true
-        default: v2.10.0
+        default: v3.0.0
         type: string
 
 permissions:
@@ -37,8 +37,6 @@ jobs:
           command -v sdkmanager || true
           test -d "$ANDROID_HOME"
       - run: npm ci
-        env:
-          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
       - run: npm run test:telemetry
       - run: npm run android:sync
       - name: Build installable debug APK
@@ -96,29 +94,34 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
       - run: npm ci
-      - name: Build Windows installer
+      - run: npm run test:telemetry
+      - name: Build compact Tauri Windows installer with direct RFCOMM Bluetooth
         shell: pwsh
         run: |
-          npm run electron:dist 2>&1 | Tee-Object -FilePath electron-build.log
+          npm run desktop:build 2>&1 | Tee-Object -FilePath desktop-build.log
           $buildStatus = $LASTEXITCODE
           if ($buildStatus -ne 0) {
-            Get-Content electron-build.log -Tail 100 | Add-Content $env:GITHUB_STEP_SUMMARY
-            Get-Content electron-build.log | Select-String -Pattern '⨯|ERROR|failed|error|cannot|unable|not found|exception' | Select-Object -Last 25 | ForEach-Object { Write-Output "::error title=Electron diagnosis::$($_.Line)" }
+            Get-Content desktop-build.log -Tail 100 | Add-Content $env:GITHUB_STEP_SUMMARY
+            Get-Content desktop-build.log | Select-String -Pattern 'error|failed|cannot|unable|not found|exception' | Select-Object -Last 25 | ForEach-Object { Write-Output "::error title=Tauri build diagnosis::$($_.Line)" }
             exit $buildStatus
           }
       - uses: actions/upload-artifact@v4
         if: success()
         with:
           name: amin-windows-installer
-          path: release/*.exe
+          path: src-tauri/target/release/bundle/nsis/*.exe
           if-no-files-found: error
           retention-days: 14
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: amin-windows-build-log
-          path: electron-build.log
+          path: desktop-build.log
           if-no-files-found: ignore
           retention-days: 5
 
@@ -144,10 +147,10 @@ jobs:
       - name: Create GitHub release with both installers
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RELEASE_VERSION: ${{ inputs.release_version || 'v2.10.0' }}
+          RELEASE_VERSION: ${{ inputs.release_version || 'v3.0.0' }}
         run: |
           if ! [[ "$RELEASE_VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "Release version must look like v2.10.0"
+            echo "Release version must look like v3.0.0"
             exit 1
           fi
           if gh release view "$RELEASE_VERSION" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
@@ -158,4 +161,4 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
             --title "AMIN Bluetooth Control $RELEASE_VERSION" \
-            --notes "Installers for AMIN Bluetooth Control. Android APK is a debug-signed installable build. Windows installer is an unsigned x64 NSIS installer. HC-05/HC-06 use Bluetooth Classic SPP; pair the module in system settings first."
+            --notes "Installers for AMIN Bluetooth Control. Android APK is a debug-signed installable build. Windows installer is an unsigned x64 NSIS installer. Windows uses a compact Tauri/WebView2 desktop shell and connects directly to paired Bluetooth Classic RFCOMM/SPP devices (no COM-port selection); pair the module in system Bluetooth settings first. Android remains a Bluetooth Classic SPP app."

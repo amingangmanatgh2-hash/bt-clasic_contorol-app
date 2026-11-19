@@ -2,16 +2,16 @@
 
 **Control Everything With One Touch**
 
-اپلیکیشن چندسکویی برای کنترل آردوینو با Bluetooth Classic SPP. رابط React/TypeScript در Android و Windows یکسان است؛ اتصال رادیویی از API بومی هر سیستم‌عامل انجام می‌شود.
+اپلیکیشن چندسکویی برای کنترل آردوینو با Bluetooth Classic SPP. رابط React/TypeScript در Android و Windows یکسان است. Windows با پوستهٔ سبک Tauri/Rust و WebView2 ویندوز اجرا می‌شود؛ Android همچنان از Capacitor استفاده می‌کند.
 
 ## معماری ارتباط
 
 - **Android:** افزونه بومی Capacitor در `android/app/src/main/java/.../ClassicBluetoothPlugin.java` از Android Bluetooth API، RFCOMM و UUID استاندارد SPP (`00001101-0000-1000-8000-00805F9B34FB`) استفاده می‌کند. جست‌وجو، فهرست دستگاه‌های جفت‌شده، مجوز Nearby devices و خواندن/نوشتن جریانی پشتیبانی می‌شوند.
-- **Windows:** Electron با `serialport` به پورت مجازی COM مربوط به پروفایل Bluetooth SPP وصل می‌شود. ماژول را در Windows Bluetooth settings جفت کنید، پورت خروجی SPP را پیدا کنید و در برنامه انتخاب کنید.
+- **Windows:** برنامه با API بومی Windows به سرویس Bluetooth Classic RFCOMM/SPP وصل می‌شود؛ انتخاب یا ساخت پورت COM لازم نیست. دستگاه جفت‌شده را در خود برنامه انتخاب کنید.
 - **HC-05/HC-06:** از Bluetooth Classic SPP پشتیبانی می‌شود؛ **Bluetooth LE پشتیبانی نمی‌شود**. نرخ سریال Windows برابر 9600 baud است (تنظیم رایج پیش‌فرض HC-05/HC-06). متن/بایت‌های UTF-8 دقیقاً همان‌طور که در دکمه تعریف شده ارسال می‌شوند؛ برنامه newline اضافه نمی‌کند.
 - **مرورگر:** صرفاً پیش‌نمایش UI است و عمداً ادعای اتصال Bluetooth ندارد.
 
-دستگاه‌های HC-05/HC-06 معمولاً باید ابتدا از تنظیمات سیستم‌عامل جفت شوند (PIN متداول ماژول‌ها 1234 یا 0000 است؛ از تنظیمات خود ماژول تبعیت کنید). در Android مجوز Bluetooth/Nearby devices و برای اسکن در نسخه‌های قدیمی‌تر مجوز مکان لازم است. در Windows پورت‌های سریال موجود فهرست می‌شوند؛ اگر COM Bluetooth SPP ساخته نشده باشد، ابتدا جفت‌سازی/تنظیمات Bluetooth ویندوز را کامل کنید.
+دستگاه‌های HC-05/HC-06 معمولاً باید ابتدا از تنظیمات سیستم‌عامل جفت شوند (PIN متداول ماژول‌ها 1234 یا 0000 است؛ از تنظیمات خود ماژول تبعیت کنید). در Android مجوز Bluetooth/Nearby devices و برای اسکن در نسخه‌های قدیمی‌تر مجوز مکان لازم است. در Windows ابتدا HC-05/HC-06 را در Bluetooth Settings جفت کنید، سپس آن را از فهرست دستگاه‌های برنامه انتخاب کنید. ارتباط برنامه مستقیماً از طریق RFCOMM است و نیازی به COM ندارد. برای اجرای پوستهٔ دسکتاپ، WebView2 Runtime لازم است؛ نصب‌کننده در صورت نیاز bootstrapper رسمی آن را اجرا می‌کند.
 
 ## قابلیت‌ها
 
@@ -29,14 +29,14 @@
 
 ## اجرا و توسعه
 
-نیازمندی‌ها: Node.js 20+ و npm؛ برای اجرای آزمون‌های parser، Node.js 22+. برای Android، Android Studio/SDK و JDK 21. برای Windows EXE، Windows 10/11 (ساخت بومی Windows توصیه می‌شود).
+نیازمندی‌ها: Node.js 20+ و npm؛ برای آزمون‌ها، Node.js 22+. برای Android، Android Studio/SDK و JDK 21. برای Windows desktop، Rust stable toolchain، Windows 10/11 و WebView2 SDK/runtime (ساخت بومی Windows توصیه می‌شود).
 
 ```bash
 npm ci
 npm run dev              # پیش‌نمایش وب (بدون دسترسی Bluetooth)
 npm run build            # ساخت UI وب
 npm run test:telemetry   # آزمون‌های تجزیهٔ دادهٔ سنسورها
-npm run electron:dev     # اجرای نسخه دسکتاپ
+npm run desktop:dev      # اجرای نسخه Windows دسکتاپ (Tauri)
 ```
 
 ### Android APK
@@ -56,19 +56,19 @@ cd android
 
 ```powershell
 npm ci
-npm run electron:dist
+npm run desktop:build
 ```
 
-Installer NSIS x64 در `release/` تولید می‌شود. جفت‌سازی ماژول و ساخت پورت COM خروجی Bluetooth SPP در تنظیمات Windows انجام می‌شود.
+Installer NSIS x64 در `src-tauri/target/release/bundle/nsis/` تولید می‌شود. ابتدا دستگاه را در تنظیمات Bluetooth ویندوز جفت کنید؛ سپس اتصال مستقیم RFCOMM را در برنامه انجام دهید. نصب‌کننده به‌جای بسته‌بندی Chromium از WebView2 سیستم استفاده می‌کند.
 
 ## انتشار در GitHub Releases
 
-از **Actions → Build and publish installers → Run workflow** استفاده و نسخهٔ انتشار، مثلاً `v2.10.0`، را وارد کنید. Workflow هر دو نصاب را می‌سازد و پس از موفقیت هر دو، آن‌ها را در یک GitHub Release می‌گذارد. اگر تگ انتشار از قبل وجود داشته باشد، فایل‌های قبلی دست‌نخورده می‌مانند. APK نسخه debug و قابل نصب است؛ نسخه Android برای توزیع عمومی با keystore شخصی امضا شود. Windows EXE نیز امضای کد ندارد. در کنار Release، دو artifact موقت با مهلت 14 روز نگه‌داری می‌شوند.
+از **Actions → Build and publish installers → Run workflow** استفاده و نسخهٔ انتشار، مثلاً `v3.0.0`، را وارد کنید. Workflow هر دو نصاب را می‌سازد و پس از موفقیت هر دو، آن‌ها را در یک GitHub Release می‌گذارد. اگر تگ انتشار از قبل وجود داشته باشد، فایل‌های قبلی دست‌نخورده می‌مانند. APK نسخه debug و قابل نصب است؛ نسخه Android برای توزیع عمومی با keystore شخصی امضا شود. Windows EXE نیز امضای کد ندارد. در کنار Release، دو artifact موقت با مهلت 14 روز نگه‌داری می‌شوند.
 
 ## ساختار
 
 - `src/ui/` رابط کاربری و استایل‌های واکنش‌گرا
 - `src/platform/bluetooth.ts` انتخاب backend سیستم‌عامل
 - `android/` پروژه native Capacitor و پیاده‌سازی Bluetooth Classic
-- `electron/` فرایند اصلی امن Electron، preload محدود و ارتباط COM
+- `src-tauri/` پوستهٔ Rust/Tauri و ارتباط مستقیم Windows RFCOMM/SPP
 - `.github/workflows/build-installers.yml` ساخت خروجی‌های Android و Windows
