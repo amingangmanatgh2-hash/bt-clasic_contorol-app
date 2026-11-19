@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseTelemetryLine, TelemetryStreamDecoder } from '../src/platform/telemetry.ts';
+import { parseTelemetryLine, TelemetryStreamDecoder, serializeTelemetryCsv } from '../src/platform/telemetry.ts';
 
 test('parses numeric JSON fields and numeric strings with units', () => {
   assert.deepEqual(parseTelemetryLine('{"temp":24.6,"humidity":"51%","label":"warm"}'), [
@@ -46,4 +46,13 @@ test('decodes several complete lines in a single serial chunk', () => {
     { key: 'temp', value: 20, unit: 'C' },
     { key: 'humidity', value: 40, unit: '%' },
   ]);
+});
+
+
+test('exports only the selected newest chart window and CSV-escapes channel names', () => {
+  const csv = serializeTelemetryCsv([{label:'Room, north',unit:'°C',points:[{at:1000,value:20},{at:2000,value:21},{at:3000,value:22}]}],2);
+  assert.match(csv, /^\ufeff"channel","timestamp","value","unit"/);
+  assert.ok(csv.includes('"Room, north","1970-01-01T00:00:02.000Z","21","°C"'));
+  assert.ok(csv.includes('"Room, north","1970-01-01T00:00:03.000Z","22","°C"'));
+  assert.ok(!csv.includes('00.000Z","20"'));
 });

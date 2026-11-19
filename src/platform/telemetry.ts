@@ -50,3 +50,11 @@ export class TelemetryStreamDecoder {
 
   reset() { this.buffer = ''; }
 }
+
+export function serializeTelemetryCsv(metrics: Array<{ label: string; unit: string; points: TelemetryPoint[] }>, sampleWindow: number): string {
+  const quote = (value: string) => `"${value.replace(/"/g, '""')}"`;
+  const rows = [['channel', 'timestamp', 'value', 'unit'], ...metrics.flatMap(metric => metric.points.slice(-sampleWindow).map(point => [metric.label, new Date(point.at).toISOString(), String(point.value), metric.unit]))];
+  return '\ufeff' + rows.map(row => row.map(quote).join(',')).join('\r\n');
+}
+
+type TelemetryPoint = { at: number; value: number };
