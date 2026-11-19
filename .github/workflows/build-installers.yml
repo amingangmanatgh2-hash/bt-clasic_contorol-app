@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       release_version:
-        description: "GitHub release tag to create (example: v3.0.0)"
+        description: "GitHub release tag to create (example: v3.0.1)"
         required: true
-        default: v3.0.0
+        default: v3.0.1
         type: string
 
 permissions:
@@ -147,10 +147,10 @@ jobs:
       - name: Create GitHub release with both installers
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RELEASE_VERSION: ${{ inputs.release_version || 'v3.0.0' }}
+          RELEASE_VERSION: ${{ inputs.release_version || 'v3.0.1' }}
         run: |
           if ! [[ "$RELEASE_VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "Release version must look like v3.0.0"
+            echo "Release version must look like v3.0.1"
             exit 1
           fi
           if gh release view "$RELEASE_VERSION" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then

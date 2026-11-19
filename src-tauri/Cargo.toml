@@ -1,6 +1,6 @@
 [package]
 name = "amin-bluetooth-control"
-version = "3.0.0"
+version = "3.0.1"
 description = "AMIN Bluetooth Control desktop application"
 authors = ["AMIN"]
 edition = "2021"

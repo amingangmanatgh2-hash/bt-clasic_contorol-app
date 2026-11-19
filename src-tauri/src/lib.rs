@@ -1,5 +1,5 @@
 use serde::Serialize;
-use std::sync::Mutex;
+use std::sync::{atomic::{AtomicU64, Ordering}, Arc, Mutex};
 use tauri::{AppHandle, Emitter, Manager, State};
 use windows::{
     core::HSTRING,
@@ -18,7 +18,11 @@ struct ActiveConnection {
 }
 
 #[derive(Default)]
-struct BluetoothState(Mutex<Option<ActiveConnection>>);
+struct BluetoothState {
+    connection: Mutex<Option<ActiveConnection>>,
+    io_lock: Mutex<()>,
+    generation: Arc<AtomicU64>,
+}
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -63,17 +67,38 @@ async fn list_bluetooth_devices() -> Result<Vec<BluetoothDeviceInfo>, String> {
     Ok(result)
 }
 
-fn start_reader(app: AppHandle, socket: StreamSocket) {
+fn finish_reader(app: &AppHandle, generation: &AtomicU64, reader_generation: u64, message: Option<String>) {
+    let Some(state) = app.try_state::<BluetoothState>() else { return; };
+    let Ok(_io_guard) = state.io_lock.lock() else { return; };
+    if generation.load(Ordering::SeqCst) != reader_generation {
+        return;
+    }
+    if let Ok(mut connection) = state.connection.lock() {
+        if let Some(connection) = connection.take() {
+            let _ = connection.socket.Close();
+        }
+    }
+    let mut payload = serde_json::json!({"connected": false});
+    if let Some(message) = message {
+        payload["message"] = serde_json::Value::String(message);
+    }
+    let _ = app.emit("bt:status", payload);
+}
+
+fn start_reader(app: AppHandle, socket: StreamSocket, generation: Arc<AtomicU64>, reader_generation: u64) {
     tauri::async_runtime::spawn_blocking(move || {
         let reader = match socket.InputStream().and_then(|stream| DataReader::CreateDataReader(&stream)) {
             Ok(reader) => reader,
             Err(error) => {
-                let _ = app.emit("bt:status", serde_json::json!({"connected": false, "message": win_error(error)}));
+                finish_reader(&app, &generation, reader_generation, Some(win_error(error)));
                 return;
             }
         };
         let _ = reader.SetInputStreamOptions(InputStreamOptions::Partial);
         loop {
+            if generation.load(Ordering::SeqCst) != reader_generation {
+                return;
+            }
             let count = match reader.LoadAsync(512).and_then(|operation| operation.get()) {
                 Ok(count) => count,
                 Err(_) => break,
@@ -85,12 +110,15 @@ fn start_reader(app: AppHandle, socket: StreamSocket) {
             if reader.ReadBytes(&mut chunk).is_err() {
                 break;
             }
+            if generation.load(Ordering::SeqCst) != reader_generation {
+                return;
+            }
             let data = String::from_utf8_lossy(&chunk).into_owned();
             if !data.is_empty() {
                 let _ = app.emit("bt:data", serde_json::json!({"data": data}));
             }
         }
-        let _ = app.emit("bt:status", serde_json::json!({"connected": false}));
+        finish_reader(&app, &generation, reader_generation, None);
     });
 }
 
@@ -100,9 +128,15 @@ async fn connect_bluetooth(
     state: State<'_, BluetoothState>,
     address: String,
 ) -> Result<ConnectedDevice, String> {
-    if let Some(previous) = state.0.lock().map_err(win_error)?.take() {
-        let _ = previous.socket.Close();
-    }
+    let connection_generation = {
+        let _io_guard = state.io_lock.lock().map_err(win_error)?;
+        let generation = state.generation.fetch_add(1, Ordering::SeqCst) + 1;
+        if let Some(previous) = state.connection.lock().map_err(win_error)?.take() {
+            let _ = previous.socket.Close();
+        }
+        generation
+    };
+    let _ = app.emit("bt:status", serde_json::json!({"connected": false}));
 
     let device = BluetoothDevice::FromIdAsync(&HSTRING::from(address))
         .map_err(win_error)?
@@ -129,11 +163,7 @@ async fn connect_bluetooth(
         let candidate = StreamSocket::new().map_err(win_error)?;
         let host = service.ConnectionHostName().map_err(win_error)?;
         let service_name = service.ConnectionServiceName().map_err(win_error)?;
-        candidate
-            .ConnectAsync(&host, &service_name)
-            .map_err(win_error)?
-            .get()
-            .map_err(win_error)?;
+        candidate.ConnectAsync(&host, &service_name).map_err(win_error)?.get().map_err(win_error)?;
         socket = Some(candidate);
         break;
     }
@@ -142,19 +172,28 @@ async fn connect_bluetooth(
     let output = socket.OutputStream().map_err(win_error)?;
     let writer = DataWriter::CreateDataWriter(&output).map_err(win_error)?;
     let reader_socket = socket.clone();
-    let mut guard = state.0.lock().map_err(win_error)?;
-    *guard = Some(ActiveConnection { socket, writer });
-    drop(guard);
+    {
+        let _io_guard = state.io_lock.lock().map_err(win_error)?;
+        if state.generation.load(Ordering::SeqCst) != connection_generation {
+            let _ = socket.Close();
+            return Err("A newer Bluetooth connection request replaced this one.".to_string());
+        }
+        *state.connection.lock().map_err(win_error)? = Some(ActiveConnection { socket, writer });
+    }
 
-    start_reader(app.clone(), reader_socket);
     let _ = app.emit("bt:status", serde_json::json!({"connected": true}));
+    start_reader(app, reader_socket, state.generation.clone(), connection_generation);
     Ok(ConnectedDevice { name })
 }
 
 #[tauri::command]
 async fn disconnect_bluetooth(app: AppHandle, state: State<'_, BluetoothState>) -> Result<(), String> {
-    if let Some(connection) = state.0.lock().map_err(win_error)?.take() {
-        connection.socket.Close().map_err(win_error)?;
+    {
+        let _io_guard = state.io_lock.lock().map_err(win_error)?;
+        state.generation.fetch_add(1, Ordering::SeqCst);
+        if let Some(connection) = state.connection.lock().map_err(win_error)?.take() {
+            connection.socket.Close().map_err(win_error)?;
+        }
     }
     let _ = app.emit("bt:status", serde_json::json!({"connected": false}));
     Ok(())
@@ -162,8 +201,9 @@ async fn disconnect_bluetooth(app: AppHandle, state: State<'_, BluetoothState>) 
 
 #[tauri::command]
 async fn send_bluetooth(state: State<'_, BluetoothState>, data: String) -> Result<(), String> {
+    let _io_guard = state.io_lock.lock().map_err(win_error)?;
     let writer = state
-        .0
+        .connection
         .lock()
         .map_err(win_error)?
         .as_ref()

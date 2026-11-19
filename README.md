@@ -63,7 +63,7 @@ Installer NSIS x64 در `src-tauri/target/release/bundle/nsis/` تولید می�
 
 ## انتشار در GitHub Releases
 
-از **Actions → Build and publish installers → Run workflow** استفاده و نسخهٔ انتشار، مثلاً `v3.0.0`، را وارد کنید. Workflow هر دو نصاب را می‌سازد و پس از موفقیت هر دو، آن‌ها را در یک GitHub Release می‌گذارد. اگر تگ انتشار از قبل وجود داشته باشد، فایل‌های قبلی دست‌نخورده می‌مانند. APK نسخه debug و قابل نصب است؛ نسخه Android برای توزیع عمومی با keystore شخصی امضا شود. Windows EXE نیز امضای کد ندارد. در کنار Release، دو artifact موقت با مهلت 14 روز نگه‌داری می‌شوند.
+از **Actions → Build and publish installers → Run workflow** استفاده و نسخهٔ انتشار، مثلاً `v3.0.1`، را وارد کنید. Workflow هر دو نصاب را می‌سازد و پس از موفقیت هر دو، آن‌ها را در یک GitHub Release می‌گذارد. اگر تگ انتشار از قبل وجود داشته باشد، فایل‌های قبلی دست‌نخورده می‌مانند. APK نسخه debug و قابل نصب است؛ نسخه Android برای توزیع عمومی با keystore شخصی امضا شود. Windows EXE نیز امضای کد ندارد. در کنار Release، دو artifact موقت با مهلت 14 روز نگه‌داری می‌شوند.
 
 ## ساختار
 
