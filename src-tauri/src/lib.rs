@@ -129,21 +129,20 @@ async fn connect_bluetooth(
             continue;
         }
         let candidate = StreamSocket::new().map_err(win_error)?;
+        let host = service.ConnectionHostName().map_err(win_error)?;
+        let service_name = service.ConnectionServiceName().map_err(win_error)?;
         candidate
-            .ConnectAsync(
-                &service.ConnectionHostName().map_err(win_error)?,
-                &service.ConnectionServiceName().map_err(win_error)?,
-                SocketProtectionLevel::PlainSocket,
-            )
+            .ConnectAsync(&host, &service_name, SocketProtectionLevel::PlainSocket)
             .map_err(win_error)?
-            .await
+            .get()
             .map_err(win_error)?;
         socket = Some(candidate);
         break;
     }
 
     let socket = socket.ok_or_else(|| "The paired device does not expose the Bluetooth Serial Port (SPP) service. Check that it is an HC-05/HC-06 or another RFCOMM SPP device.".to_string())?;
-    let writer = DataWriter::CreateDataWriter(&socket.OutputStream()).map_err(win_error)?;
+    let output = socket.OutputStream().map_err(win_error)?;
+    let writer = DataWriter::CreateDataWriter(&output).map_err(win_error)?;
     let reader_socket = socket.clone();
     let mut guard = state.0.lock().map_err(win_error)?;
     *guard = Some(ActiveConnection { socket, writer });
